@@ -180,7 +180,10 @@ class Form implements Renderable
         return $this;
     }
 
-    public function model()
+    /**
+     * @return Model
+     */
+    public function model(): Model
     {
         return $this->model;
     }
