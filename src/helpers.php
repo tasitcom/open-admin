@@ -78,6 +78,18 @@ if (!function_exists('admin_toastr')) {
     }
 }
 
+if (!function_exists('admin_flashjs')) {
+    /**
+     * Flash a javascript on the following page
+     *
+     * @param string $flashjs
+     */
+    function admin_flashjs($flashjs = '')
+    {
+        session()->flash('flashjs', $flashjs);
+    }
+}
+
 if (!function_exists('admin_success')) {
     /**
      * Flash a success message bag to session.
@@ -311,5 +323,15 @@ if (!function_exists('admin_get_route')) {
     function admin_get_route(string $name): string
     {
         return config('admin.route.prefix').'.'.$name;
+    }
+}
+
+if (!function_exists('array_is_list')) {
+    function array_is_list(array $arr)
+    {
+        if ($arr === []) {
+            return true;
+        }
+        return array_keys($arr) === range(0, count($arr) - 1);
     }
 }

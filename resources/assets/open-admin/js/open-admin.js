@@ -9,6 +9,7 @@ admin.pages = {}; // shared logic for pages
 admin.form = {}; // form in page
 admin.grid = {}; // grid / lister
 admin.action = {}; // actions
+admin.cleanup = {}; // cleanup
 
 document.addEventListener('DOMContentLoaded', function () {
     admin.init();
@@ -27,24 +28,50 @@ admin.init = function () {
 admin.menu = {
     init: function () {
         let menuToggle = document.getElementById('menu-toggle');
+        let sidebar = document.getElementById("sidebar");
+        let bodyClasses = document.body.classList;
 
         menuToggle.addEventListener('click', function () {
-            if (!document.body.classList.contains('side-menu-closed')) {
+            if (!bodyClasses.contains('side-menu-closed')) {
                 admin.menu.close();
             }
 
             if (window.innerWidth < 576) {
-                document.body.classList.toggle('side-menu-open');
-                document.body.classList.remove('side-menu-closed');
+                bodyClasses.toggle('side-menu-open');
+                bodyClasses.remove('side-menu-closed');
             } else {
-                document.body.classList.toggle('side-menu-closed');
-                document.body.classList.remove('side-menu-open');
+                bodyClasses.toggle('side-menu-closed');
+                bodyClasses.remove('side-menu-open');
+            }
+
+            if (bodyClasses.contains('sidebar-collapse-open')) {
+                bodyClasses.add('sidebar-collapse');
+                bodyClasses.remove('sidebar-collapse-open');
+            } else if (bodyClasses.contains('sidebar-collapse')) {
+                bodyClasses.remove('sidebar-collapse');
+                bodyClasses.add('sidebar-collapse-open');
             }
         });
 
+        sidebar.addEventListener("mouseover", function () {
+            if (bodyClasses.contains('sidebar-collapse') && bodyClasses.contains('side-menu-closed')) {
+                bodyClasses.remove('side-menu-closed');
+            }
+        });
+
+        sidebar.addEventListener("mouseout", function () {
+            if (bodyClasses.contains('sidebar-collapse') && !bodyClasses.contains('side-menu-closed')) {
+                bodyClasses.add('side-menu-closed');
+            }
+        });
+
+        if (bodyClasses.contains('sidebar-mini')) {
+            bodyClasses.add('side-menu-closed');
+        }
+
         window.addEventListener('resize', function () {
             if (window.innerWidth < 576) {
-                document.body.classList.remove('side-menu-closed');
+                bodyClasses.remove('side-menu-closed');
             }
         });
 
@@ -194,6 +221,7 @@ let preventPopState;
 
 admin.ajax = {
     currenTarget: false,
+    lastRequst: false,
 
     defaults: {
         headers: { 'X-PJAX': true, 'X-PJAX-CONTAINER': '#pjax-container', 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html, application/json, text/plain, */*' },
@@ -290,6 +318,7 @@ admin.ajax = {
 
         obj.url = url;
         let axios_obj = merge_default(this.defaults, obj);
+        admin.ajax.lastRequst = axios_obj;
 
         axios(axios_obj)
             .then(function (response) {
@@ -375,7 +404,7 @@ admin.ajax = {
                 script.src = src;
                 document.getElementById('app').appendChild(script);
             } else {
-                eval(script.innerText);
+                admin.scripts.run(script.innerText);
             }
         });
 
@@ -398,11 +427,24 @@ admin.ajax = {
             console.log(error.request);
         } else {
             // Something happened in setting up the request that triggered an Error
-            console.log('An error has accurred:');
+            console.log('An error has occurred while fetching:', admin.ajax.lastRequst);
             console.log(error);
         }
     },
 };
+
+admin.scripts = {
+
+    run: function (strscript) {
+        try {
+            strscript = strscript.trim();
+            new Function(strscript)();
+        } catch (error) {
+            console.log(error);
+            throw new Error("Error running script:" + strscript);
+        }
+    }
+}
 
 admin.pages = {
     init: function () {
@@ -438,8 +480,27 @@ admin.pages = {
     },
 };
 
+admin.cleanup = {
+    cleanupCalls: [],
+
+    add: function (callback) {
+        this.cleanupCalls.push(callback)
+    },
+
+    now: function () {
+
+        for (i in this.cleanupCalls) {
+            func = this.cleanupCalls[i]
+            func.apply(this)
+        }
+        document.querySelectorAll('.flatpickr-calendar').forEach((cal) => {
+            cal.remove();
+        });
+
+        this.cleanupCalls = [];
+    }
+
+}
 admin.collectGarbage = function () {
-    document.querySelectorAll('.flatpickr-calendar').forEach((cal) => {
-        cal.remove();
-    });
+    admin.cleanup.now()
 };

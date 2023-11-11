@@ -8,7 +8,6 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\MessageBag;
@@ -19,6 +18,7 @@ use OpenAdmin\Admin\Form\Builder;
 use OpenAdmin\Admin\Form\Concerns\HandleCascadeFields;
 use OpenAdmin\Admin\Form\Concerns\HasFields;
 use OpenAdmin\Admin\Form\Concerns\HasFormAttributes;
+use OpenAdmin\Admin\Form\Concerns\HasFormFlags;
 use OpenAdmin\Admin\Form\Concerns\HasHooks;
 use OpenAdmin\Admin\Form\Field;
 use OpenAdmin\Admin\Form\Layout\Layout;
@@ -39,10 +39,7 @@ class Form implements Renderable
     use HasFormAttributes;
     use HandleCascadeFields;
     use ShouldSnakeAttributes;
-    /**
-     * Remove flag in `has many` form.
-     */
-    public const REMOVE_FLAG_NAME = '_remove_';
+    use HasFormFlags;
 
     /**
      * Eloquent model of the form.
@@ -149,7 +146,7 @@ class Form implements Renderable
     /**
      * Create a new form instance.
      *
-     * @param $model
+     * @param          $model
      * @param \Closure $callback
      */
     public function __construct($model, Closure $callback = null)
@@ -193,9 +190,9 @@ class Form implements Renderable
     }
 
     /**
-     * @return Model
+     * @return Model|\OpenAdmin\Admin\Actions\Interactor\Form
      */
-    public function model(): Model
+    public function model(): Model|\OpenAdmin\Admin\Actions\Interactor\Form
     {
         return $this->model;
     }
@@ -587,16 +584,15 @@ class Form implements Renderable
 
         DB::transaction(function () {
             $updates = $this->prepareUpdate($this->updates);
-
             foreach ($updates as $column => $value) {
                 /* @var Model $this ->model */
                 $this->model->setAttribute($column, $value);
             }
-
             $this->model->save();
-
             $this->updateRelation($this->relations);
+
         });
+
 
         if (($result = $this->callSaved()) instanceof Response) {
             return $result;
@@ -839,9 +835,7 @@ class Form implements Renderable
                             }
 
                             Arr::forget($related, static::REMOVE_FLAG_NAME);
-
                             $child->fill($related);
-
                             $child->save();
                         }
                     }
@@ -862,10 +856,19 @@ class Form implements Renderable
     {
         $prepared = [];
 
-        /** @var Field $field */
-        foreach ($this->fields() as $field) {
-            $columns = $field->column();
+        $fields = $this->fields();
 
+        // if relation update only include relation fields
+        if ($isRelationUpdate) {
+            $fields = $fields->filter(function ($field) {
+                return $field->hasRelation();
+            });
+        }
+
+        /** @var Field $field */
+        foreach ($fields as $field) {
+
+            $columns = $field->column();
             if ($this->isInvalidColumn($columns, $oneToOneRelation || $field->isJsonType)
                 || (in_array($columns, $this->relation_fields) && !$isRelationUpdate)) {
                 continue;
@@ -874,20 +877,48 @@ class Form implements Renderable
             $value = $this->getDataByColumn($updates, $columns);
             $value = $field->prepare($value);
 
+
             // only process values if not false
             if ($value !== false) {
                 if (is_array($columns)) {
                     foreach ($columns as $name => $column) {
-                        Arr::set($prepared, $column, $value[$name]);
+
+                        $col_value = $value[$name];
+                        if (is_array($col_value)) {
+                            $col_value = $this->filterFalseValues($col_value);
+                        }
+                        Arr::set($prepared, $column, $col_value);
                     }
                 } elseif (is_string($columns)) {
+
+                    if (is_array($value)) {
+                        $value = $this->filterFalseValues($value);
+                    }
                     Arr::set($prepared, $columns, $value);
                 }
             }
         }
 
+        if ($isRelationUpdate) {
+            //dd("aasfasdfasfd");
+        }
+
+
         return $prepared;
     }
+
+    protected function filterFalseValues($value)
+    {
+        foreach ($value as &$row) {
+            if (is_array($row)) {
+                $row = array_filter($row, function ($val) {
+                    return $val !== false;
+                });
+            }
+        }
+        return $value;
+    }
+
 
     /**
      * @param string|array $columns

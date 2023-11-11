@@ -38,6 +38,13 @@ class Field implements Renderable
     protected $value;
 
     /**
+     * Relation name.
+     *
+     * @var string
+     */
+    protected $relationName;
+
+    /**
      * Data of all original columns of value.
      *
      * @var mixed
@@ -78,6 +85,13 @@ class Field implements Renderable
      * @var string|array
      */
     protected $column = '';
+
+    /**
+     * key name in request.
+     *
+     * @var string|array
+     */
+    protected $requestFieldKey = '';
 
     /**
      * Form element name.
@@ -295,9 +309,10 @@ class Field implements Renderable
      */
     public function __construct($column = '', $arguments = [])
     {
-        $this->column = $this->formatColumn($column);
-        $this->label  = $this->formatLabel($arguments);
-        $this->id     = $this->formatId($column);
+        $this->column          = $this->formatColumn($column);
+        $this->label           = $this->formatLabel($arguments);
+        $this->id              = $this->formatId($column);
+        $this->requestFieldKey = $this->column;
 
         if (method_exists($this, 'init')) {
             $this->init();
@@ -420,6 +435,31 @@ class Field implements Renderable
     }
 
     /**
+     * Set the key of the field in the request
+     *
+     * @param string
+     *
+     * @return $this
+     */
+    public function setRequestFieldKey($fieldKey)
+    {
+        $this->requestFieldKey = $fieldKey;
+        return $this;
+    }
+
+    /**
+     * Set the key of the field in the request
+     *
+     * @param string
+     *
+     * @return $this
+     */
+    public function getRequestFieldKey()
+    {
+        return $this->requestFieldKey;
+    }
+
+    /**
      * Fill data to the field.
      *
      * @param array $data
@@ -484,10 +524,8 @@ class Field implements Renderable
             foreach ($this->column as $key => $column) {
                 $this->original[$key] = Arr::get($data, $column);
             }
-
             return;
         }
-
         $this->original = Arr::get($data, $this->column);
     }
 
@@ -1222,6 +1260,16 @@ class Field implements Renderable
         return $this->placeholder ?: trans('admin.input').' '.$this->label;
     }
 
+     /**
+     * Get relationName.
+     *
+     * @return mixed
+     */
+    public function hasRelation()
+    {
+        return !empty($this->relationName);
+    }
+
     /**
      * Add a divider after this field.
      *
@@ -1419,6 +1467,17 @@ class Field implements Renderable
         }
 
         return '.'.implode('.', $elementClass);
+    }
+
+    /**
+     * Get a javascript save variable name .
+     *
+     * @return string
+     */
+    public function getVariableName()
+    {
+        $elementClassSelector = $this->getElementClassSelector();
+        return str_replace(["-",".",">"], "_", $elementClassSelector);
     }
 
     /**
