@@ -142,7 +142,7 @@ class Grid
      *
      * @var int
      */
-    public $sortColumns = true;
+    public $sortColumns = false;
     /**
      * @var []callable
      */
