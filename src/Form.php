@@ -844,31 +844,14 @@ class Form implements Renderable
         }
     }
 
-    /**
-     * Prepare input data for update.
-     *
-     * @param array $updates
-     * @param bool  $oneToOneRelation If column is one-to-one relation.
-     *
-     * @return array
-     */
     protected function prepareUpdate(array $updates, $oneToOneRelation = false, $isRelationUpdate = false): array
     {
         $prepared = [];
 
-        $fields = $this->fields();
-
-        // if relation update only include relation fields
-        if ($isRelationUpdate) {
-            $fields = $fields->filter(function ($field) {
-                return $field->hasRelation();
-            });
-        }
-
         /** @var Field $field */
-        foreach ($fields as $field) {
-
+        foreach ($this->fields() as $field) {
             $columns = $field->column();
+
             if ($this->isInvalidColumn($columns, $oneToOneRelation || $field->isJsonType)
                 || (in_array($columns, $this->relation_fields) && !$isRelationUpdate)) {
                 continue;
@@ -877,32 +860,17 @@ class Form implements Renderable
             $value = $this->getDataByColumn($updates, $columns);
             $value = $field->prepare($value);
 
-
             // only process values if not false
             if ($value !== false) {
                 if (is_array($columns)) {
                     foreach ($columns as $name => $column) {
-
-                        $col_value = $value[$name];
-                        if (is_array($col_value)) {
-                            $col_value = $this->filterFalseValues($col_value);
-                        }
-                        Arr::set($prepared, $column, $col_value);
+                        Arr::set($prepared, $column, $value[$name]);
                     }
                 } elseif (is_string($columns)) {
-
-                    if (is_array($value)) {
-                        $value = $this->filterFalseValues($value);
-                    }
                     Arr::set($prepared, $columns, $value);
                 }
             }
         }
-
-        if ($isRelationUpdate) {
-            //dd("aasfasdfasfd");
-        }
-
 
         return $prepared;
     }
