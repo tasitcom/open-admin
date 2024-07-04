@@ -148,6 +148,8 @@ class Grid
      */
     protected $renderingCallbacks = [];
 
+    public $emptyPage;
+
     /**
      * Options for grid.
      *
@@ -988,5 +990,21 @@ class Grid
         $this->callRenderingCallback();
 
         return Admin::component($this->view, $this->variables());
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getEmptyPage()
+    {
+        return $this->emptyPage;
+    }
+
+    /**
+     * @param mixed $emptyPage
+     */
+    public function setEmptyPage($emptyPage): void
+    {
+        $this->emptyPage = $emptyPage;
     }
 }
